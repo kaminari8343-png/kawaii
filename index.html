@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>きせかえ</title>
+<style>
+  :root {
+    --hs: #e0558f;            /* 髪のふちどり色（JSで切り替え） */
+    --skin: #ffe1cf;
+    --skin-edge: #f0b9a3;
+    --ink: #5a3b4a;
+    --panel: #fff7fb;
+    --accent: #ff7eb6;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #ffe9f3;
+    font-family: system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+  button { font: inherit; cursor: pointer; border: 0; padding: 0; touch-action: manipulation; }
+
+  #app {
+    height: 100dvh; width: 100vw;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  @media (orientation: landscape) {
+    #app { grid-template-columns: minmax(0, 1fr) clamp(300px, 36vw, 440px); grid-template-rows: 1fr; }
+  }
+
+  /* ---------- ステージ ---------- */
+  #stage {
+    position: relative; overflow: hidden; min-height: 0;
+    background: linear-gradient(180deg, #ffe3f1 0%, #fff3e0 100%);   /* 背景パーツは後で差し替え */
+  }
+  #girl { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+  #fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .spark {
+    position: absolute; width: 22px; height: 22px; left: 0; top: 0;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  }
+
+  /* キャラのアニメーション */
+  #bob { animation: breathe 3.2s ease-in-out infinite; transform-origin: 200px 620px; }
+  @keyframes breathe { 50% { transform: translateY(-5px) scale(1.004); } }
+  #bob.laughing { animation: jump .55s ease-in-out 2; }
+  @keyframes jump { 40% { transform: translateY(-22px) rotate(-1.5deg); } 70% { transform: translateY(0) rotate(1deg); } }
+
+  .eye { transform-box: fill-box; transform-origin: center; transition: transform .07s; }
+  #girl.blink .eye { transform: scaleY(.08); }
+  .happy-eye, .mouth-open { display: none; }
+  #girl.laugh .eye, #girl.laugh .mouth-smile { display: none; }
+  #girl.laugh .happy-eye, #girl.laugh .mouth-open { display: inline; }
+
+  .hp { fill: url(#hairGrad); stroke: var(--hs); stroke-width: 3.5; stroke-linejoin: round; }
+  .hp-tie { fill: #ff5d8f; stroke: #d63b6c; stroke-width: 2.5; }
+  .hair-pop { animation: pop .5s ease-out; transform-origin: 200px 240px; }
+  @keyframes pop { 0% { transform: scale(.92); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+
+  /* ---------- 上のボタン ---------- */
+  #tools { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 10px; display: flex; gap: 10px; z-index: 5; }
+  .tool {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: #fff; font-size: 34px; line-height: 1;
+    box-shadow: 0 4px 0 #f3b5d1, 0 6px 14px rgba(200,80,130,.25);
+    display: grid; place-items: center;
+  }
+  .tool:active { transform: translateY(3px); box-shadow: 0 1px 0 #f3b5d1; }
+  #omakase { background: linear-gradient(135deg, #ffd1e8, #d7c4ff); }
+
+  /* ---------- パネル ---------- */
+  #panel {
+    background: var(--panel);
+    display: flex; flex-direction: column; min-height: 0;
+    border-top: 4px solid #ffc6e0;
+    padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  @media (orientation: portrait) { #panel { max-height: 42dvh; } }
+  @media (orientation: landscape) { #panel { border-top: 0; border-left: 4px solid #ffc6e0; padding-top: max(12px, env(safe-area-inset-top)); } }
+
+  #tabs { display: flex; gap: 8px; flex: none; overflow-x: auto; padding-bottom: 2px; }
+  .tab {
+    flex: 1 0 64px; height: 64px; min-width: 64px; border-radius: 20px;
+    background: #ffeaf4; font-size: 32px; display: grid; place-items: center;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); box-shadow: 0 4px 0 #e0558f; }
+
+  #options {
+    flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 10px;
+    align-content: start; padding: 4px 2px 8px;
+  }
+  .opt {
+    aspect-ratio: 1; min-height: 72px; border-radius: 22px; background: #fff;
+    border: 4px solid #ffdcec; display: grid; place-items: center; overflow: hidden;
+    transition: transform .12s;
+  }
+  .opt:active { transform: scale(.93); }
+  .opt[aria-pressed="true"] { border-color: var(--accent); background: #fff0f8; box-shadow: 0 0 0 3px #ffc0dd; }
+  .opt svg { width: 88%; height: 88%; }
+  .swatch { width: 70%; height: 70%; border-radius: 50%; border: 3px solid rgba(0,0,0,.12); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <svg id="girl" viewBox="0 0 400 640" preserveAspectRatio="xMidYMax meet" aria-label="女の子">
+      <defs>
+        <!-- 髪色グラデーション（JSで色を差し替え） -->
+        <linearGradient id="hairGrad" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="480"></linearGradient>
+      </defs>
+
+      <g id="bob">
+        <ellipse cx="200" cy="628" rx="95" ry="9" fill="rgba(120,60,90,.18)"/>
+
+        <!-- 後ろ髪 -->
+        <g id="layer-hair-back"></g>
+
+        <!-- からだ -->
+        <g id="layer-body">
+          <line x1="175" y1="470" x2="172" y2="595" stroke="var(--skin)" stroke-width="30" stroke-linecap="round"/>
+          <line x1="225" y1="470" x2="228" y2="595" stroke="var(--skin)" stroke-width="30" stroke-linecap="round"/>
+          <ellipse cx="166" cy="608" rx="27" ry="15" fill="#ff7aa8"/>
+          <ellipse cx="234" cy="608" rx="27" ry="15" fill="#ff7aa8"/>
+          <line x1="150" y1="352" x2="118" y2="458" stroke="var(--skin)" stroke-width="26" stroke-linecap="round"/>
+          <line x1="250" y1="352" x2="282" y2="458" stroke="var(--skin)" stroke-width="26" stroke-linecap="round"/>
+          <circle cx="116" cy="466" r="15" fill="var(--skin)"/>
+          <circle cx="284" cy="466" r="15" fill="var(--skin)"/>
+          <rect x="183" y="305" width="34" height="50" rx="14" fill="var(--skin)"/>
+          <rect x="142" y="332" width="116" height="170" rx="40" fill="var(--skin)"/>
+        </g>
+
+        <!-- 洋服（あとで着せ替え対応。いまは下着がわりの基本ふく） -->
+        <g id="layer-clothes">
+          <path d="M146 345 Q200 362 254 345 L262 468 Q200 482 138 468 Z" fill="#fff" stroke="#f0c8da" stroke-width="3"/>
+          <path d="M138 468 Q200 482 262 468 L268 515 Q200 530 132 515 Z" fill="#ffc4dc" stroke="#f0a6c6" stroke-width="3"/>
+        </g>
+
+        <!-- あたま -->
+        <g id="layer-head">
+          <circle cx="111" cy="252" r="15" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2"/>
+          <circle cx="289" cy="252" r="15" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2"/>
+          <ellipse cx="200" cy="235" rx="91" ry="86" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2.5"/>
+        </g>
+
+        <!-- かお -->
+        <g id="layer-face">
+          <path d="M143 218 Q160 209 177 218" stroke="#8a5a52" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path d="M223 218 Q240 209 257 218" stroke="#8a5a52" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <g class="eye"><ellipse cx="160" cy="247" rx="14" ry="19" fill="#3d2a30"/><circle cx="155" cy="239" r="6.5" fill="#fff"/><circle cx="166" cy="255" r="3.2" fill="#fff"/></g>
+          <g class="eye"><ellipse cx="240" cy="247" rx="14" ry="19" fill="#3d2a30"/><circle cx="235" cy="239" r="6.5" fill="#fff"/><circle cx="246" cy="255" r="3.2" fill="#fff"/></g>
+          <path class="happy-eye" d="M144 252 Q160 230 176 252" stroke="#3d2a30" stroke-width="6" fill="none" stroke-linecap="round"/>
+          <path class="happy-eye" d="M224 252 Q240 230 256 252" stroke="#3d2a30" stroke-width="6" fill="none" stroke-linecap="round"/>
+          <ellipse cx="133" cy="280" rx="16" ry="10" fill="#ff8fa6" opacity=".5"/>
+          <ellipse cx="267" cy="280" rx="16" ry="10" fill="#ff8fa6" opacity=".5"/>
+          <path class="mouth-smile" d="M186 287 Q200 302 214 287" stroke="#c0486a" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+          <g class="mouth-open"><path d="M182 280 Q200 322 218 280 Z" fill="#b63a5c" stroke="#b63a5c" stroke-width="3" stroke-linejoin="round"/><ellipse cx="200" cy="302" rx="9" ry="5.5" fill="#ff8fa3"/></g>
+        </g>
+
+        <!-- 前髪・結び目 -->
+        <g id="layer-hair-front"></g>
+
+        <!-- アクセサリー（あとで追加） -->
+        <g id="layer-acc"></g>
+      </g>
+    </svg>
+    <div id="fx"></div>
+    <div id="tools">
+      <button class="tool" id="omakase" aria-label="おまかせ">🪄</button>
+      <button class="tool" id="sound" aria-label="おと">🔊</button>
+    </div>
+  </div>
+
+  <div id="panel">
+    <div id="tabs" role="tablist"></div>
+    <div id="options"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================= 髪型パーツ（後ろ髪 / 前髪を別々に返す） ================= */
+  const P = (d, cls = 'hp') => `<path class="${cls}" d="${d}"/>`;
+  const tie = (x, y) => `<circle class="hp-tie" cx="${x}" cy="${y}" r="11"/>`;
+  const mirror = s => `<g transform="translate(400 0) scale(-1 1)">${s}</g>`;
+  const shine = d => `<path d="${d}" stroke="#fff" stroke-opacity=".55" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+
+  const cap = P('M200 112 C112 112 92 190 94 250 L306 250 C308 190 288 112 200 112 Z');
+  const bangsSweep = P('M104 238 C92 138 148 114 200 114 C252 114 308 138 296 238 C282 202 258 180 220 172 C196 196 150 210 104 238 Z') + shine('M140 146 Q168 130 204 132');
+  const bangsBlunt = P('M102 228 C90 138 148 114 200 114 C252 114 310 138 298 228 C280 206 256 196 232 192 Q200 204 168 192 C144 196 120 206 102 228 Z') + shine('M140 146 Q168 130 204 132');
+  const bangsSide = P('M104 238 C92 138 148 114 200 114 C252 114 308 138 296 238 C286 196 262 168 232 162 C214 186 196 196 168 200 C148 204 126 214 104 238 Z') + shine('M142 146 Q170 130 206 132');
+
+  const curls = (n, fn) => Array.from({ length: n }, (_, i) => fn(i, n)).join('');
+  const circ = (x, y, r) => `<circle class="hp" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/>`;
+
+  const TAIL = P('M112 178 C44 196 28 320 58 420 C82 392 104 330 120 262 Z');
+
+  const HAIR = {
+    long: {
+      back: P('M200 112 C108 112 86 190 90 270 C92 340 76 420 96 478 Q200 500 304 478 C324 420 308 340 310 270 C314 190 292 112 200 112 Z'),
+      front: bangsSweep,
+    },
+    twin: {
+      back: cap + TAIL + mirror(TAIL),
+      front: bangsBlunt + tie(106, 188) + tie(294, 188),
+    },
+    odango: {
+      back: circ(118, 104, 44) + circ(282, 104, 44) + cap,
+      front: bangsSide + tie(132, 150) + tie(268, 150),
+    },
+    pony: {
+      back: cap + P('M276 128 C350 120 372 230 350 330 C346 380 322 408 300 420 C318 360 316 300 296 250 Z'),
+      front: bangsSweep + tie(290, 150),
+    },
+    short: {
+      back: P('M200 112 C112 112 90 190 92 262 C92 300 88 322 100 342 Q200 360 300 342 C312 322 308 300 308 262 C310 190 288 112 200 112 Z'),
+      front: bangsBlunt,
+    },
+    perm: {
+      back: `<ellipse class="hp" cx="200" cy="228" rx="104" ry="100"/>` +
+            curls(16, (i, n) => { const a = i / n * Math.PI * 2; return circ(200 + 106 * Math.cos(a), 232 + 108 * Math.sin(a), 30); }),
+      front: P('M104 232 C92 130 308 130 296 232 C270 190 130 190 104 232 Z') +
+             curls(7, (i, n) => circ(122 + i * 26, 176 + 10 * Math.sin(i / (n - 1) * Math.PI) - 8, 25)),
+    },
+  };
+
+  /* ================= 髪色 ================= */
+  const COLORS = {
+    pink:     { stops: [['#ffb3d4', 0], ['#ff7eb6', 1]], edge: '#e0558f', swatch: 'linear-gradient(#ffb3d4,#ff7eb6)' },
+    lavender: { stops: [['#dcc6ff', 0], ['#b48cf2', 1]], edge: '#8d62d6', swatch: 'linear-gradient(#dcc6ff,#b48cf2)' },
+    aqua:     { stops: [['#aeeaff', 0], ['#52c4f0', 1]], edge: '#2a95c6', swatch: 'linear-gradient(#aeeaff,#52c4f0)' },
+    gold:     { stops: [['#fff09a', 0], ['#f7bf3a', 1]], edge: '#d08f12', swatch: 'linear-gradient(#fff09a,#f7bf3a)' },
+    brown:    { stops: [['#b98259', 0], ['#7d4c2c', 1]], edge: '#5b3419', swatch: 'linear-gradient(#b98259,#7d4c2c)' },
+    rainbow:  { stops: [['#ff7a7a', 0], ['#ffb86b', .2], ['#fff176', .4], ['#7fe28f', .6], ['#6cc8ff', .8], ['#b48cff', 1]], edge: '#9a5fc8',
+                swatch: 'linear-gradient(135deg,#ff7a7a,#ffb86b,#fff176,#7fe28f,#6cc8ff,#b48cff)', diagonal: true },
+  };
+
+  /* ================= 状態 ================= */
+  const state = { hair: 'long', color: 'pink' };   // 洋服・アクセ・背景は後で追加
+
+  const $ = id => document.getElementById(id);
+  const girl = $('girl');
+
+  function applyColor() {
+    const c = COLORS[state.color];
+    const g = $('hairGrad');
+    g.innerHTML = c.stops.map(([col, o]) => `<stop offset="${o}" stop-color="${col}"/>`).join('');
+    if (c.diagonal) { g.setAttribute('x1', 70); g.setAttribute('y1', 110); g.setAttribute('x2', 330); g.setAttribute('y2', 420); }
+    else { g.setAttribute('x1', 0); g.setAttribute('y1', 100); g.setAttribute('x2', 0); g.setAttribute('y2', 480); }
+    document.documentElement.style.setProperty('--hs', c.edge);
+  }
+
+  function applyHair(animate) {
+    const h = HAIR[state.hair];
+    $('layer-hair-back').innerHTML = h.back;
+    $('layer-hair-front').innerHTML = h.front;
+    if (animate) {
+      for (const id of ['layer-hair-back', 'layer-hair-front']) {
+        const el = $(id); el.classList.remove('hair-pop'); void el.getBBox(); el.classList.add('hair-pop');
+      }
+    }
+  }
+
+  /* ================= パネル ================= */
+  const miniHair = key => `<svg viewBox="25 70 350 350"><circle cx="200" cy="235" r="90" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="3"/>` +
+    HAIR[key].back + `<ellipse cx="200" cy="235" rx="91" ry="86" fill="var(--skin)"/>` + HAIR[key].front + `</svg>`;
+
+  const CATEGORIES = [
+    { id: 'hair', icon: '💇‍♀️', options: Object.keys(HAIR), render: miniHair },
+    { id: 'color', icon: '🎨', options: Object.keys(COLORS), render: k => `<div class="swatch" style="background:${COLORS[k].swatch}"></div>` },
+  ];
+  let currentCat = 'hair';
+
+  function renderTabs() {
+    $('tabs').innerHTML = CATEGORIES.map(c =>
+      `<button class="tab" role="tab" data-cat="${c.id}" aria-selected="${c.id === currentCat}">${c.icon}</button>`).join('');
+  }
+  function renderOptions() {
+    const cat = CATEGORIES.find(c => c.id === currentCat);
+    $('options').innerHTML = cat.options.map(k =>
+      `<button class="opt" data-key="${k}" aria-pressed="${state[cat.id] === k}">${cat.render(k)}</button>`).join('');
+  }
+
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('.tab'); if (!b) return;
+    currentCat = b.dataset.cat; Sound.tick(); renderTabs(); renderOptions();
+  });
+  $('options').addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (!b) return;
+    state[currentCat] = b.dataset.key;
+    if (currentCat === 'hair') applyHair(true); else applyColor();
+    sparkleAround(); Sound.sparkle();
+    renderOptions();
+  });
+
+  /* ================= 効果音（Web Audio） ================= */
+  const Sound = (() => {
+    let ctx = null, muted = false;
+    try { muted = localStorage.getItem('kawaii.muted') === '1'; } catch (_) {}
+    const ensure = () => {
+      if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) ctx = new AC(); }
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    };
+    const note = (f, t, dur, type = 'sine', vol = .16, f2) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + .05);
+    };
+    return {
+      get muted() { return muted; },
+      toggle() { muted = !muted; try { localStorage.setItem('kawaii.muted', muted ? '1' : '0'); } catch (_) {} return muted; },
+      unlock: ensure,
+      sparkle() {
+        if (muted || !ensure()) return; const t = ctx.currentTime;
+        [1047, 1319, 1568, 2093, 2637].forEach((f, i) => note(f, t + i * .06, .28, 'sine', .13));
+      },
+      giggle() {
+        if (muted || !ensure()) return; const t = ctx.currentTime;
+        [0, 1, 2, 3, 4].forEach(i => note(620 + (i % 2) * 140, t + i * .1, .09, 'triangle', .2, 880 + (i % 2) * 140));
+      },
+      tick() { if (muted || !ensure()) return; note(880, ctx.currentTime, .08, 'sine', .1); },
+    };
+  })();
+
+  /* ================= キラキラ ================= */
+  const SPARK_COLORS = ['#ffd84d', '#ff8fc4', '#8fd8ff', '#c9a7ff', '#fff'];
+  function sparkleAt(cx, cy, n = 14) {
+    const fx = $('fx');
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('div'); s.className = 'spark';
+      s.style.background = SPARK_COLORS[i % SPARK_COLORS.length];
+      s.style.left = cx - 11 + 'px'; s.style.top = cy - 11 + 'px';
+      fx.appendChild(s);
+      const a = Math.random() * Math.PI * 2, d = 50 + Math.random() * 110, sc = .6 + Math.random() * 1.2;
+      const anim = s.animate([
+        { transform: 'translate(0,0) scale(0) rotate(0deg)', opacity: 1 },
+        { transform: `translate(${Math.cos(a) * d * .6}px,${Math.sin(a) * d * .6}px) scale(${sc}) rotate(120deg)`, opacity: 1, offset: .4 },
+        { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d + 20}px) scale(0) rotate(240deg)`, opacity: 0 },
+      ], { duration: 700 + Math.random() * 500, easing: 'ease-out' });
+      anim.onfinish = () => s.remove();
+    }
+  }
+  // キャラの頭まわり（SVG座標 → 画面座標）
+  function sparkleAround() {
+    const r = girl.getBoundingClientRect();
+    const k = Math.min(r.width / 400, r.height / 640);
+    const ox = r.left + (r.width - 400 * k) / 2, oy = r.bottom - 640 * k;
+    const s = $('stage').getBoundingClientRect();
+    sparkleAt(ox + 200 * k - s.left, oy + 220 * k - s.top, 18);
+  }
+
+  /* ================= まばたき・わらう ================= */
+  (function blinkLoop() {
+    girl.classList.add('blink');
+    setTimeout(() => { girl.classList.remove('blink'); setTimeout(blinkLoop, 1800 + Math.random() * 3200); }, 140);
+  })();
+
+  let laughTimer = 0;
+  function laugh(x, y) {
+    girl.classList.add('laugh');
+    const bob = $('bob'); bob.classList.remove('laughing'); void bob.getBoundingClientRect(); bob.classList.add('laughing');
+    clearTimeout(laughTimer);
+    laughTimer = setTimeout(() => { girl.classList.remove('laugh'); bob.classList.remove('laughing'); }, 1300);
+    sparkleAt(x, y, 8); Sound.giggle();
+  }
+  girl.addEventListener('pointerdown', e => {
+    Sound.unlock();
+    const s = $('stage').getBoundingClientRect();
+    laugh(e.clientX - s.left, e.clientY - s.top);
+  });
+
+  /* ================= おまかせ・おと ================= */
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  $('omakase').addEventListener('click', () => {
+    Sound.unlock();
+    state.hair = pick(Object.keys(HAIR)); state.color = pick(Object.keys(COLORS));
+    applyColor(); applyHair(true); renderOptions(); sparkleAround(); Sound.sparkle();
+  });
+  const soundBtn = $('sound');
+  const showSound = () => { soundBtn.textContent = Sound.muted ? '🔇' : '🔊'; };
+  soundBtn.addEventListener('click', () => { Sound.unlock(); Sound.toggle(); showSound(); Sound.tick(); });
+
+  /* ================= 起動 ================= */
+  applyColor(); applyHair(false); renderTabs(); renderOptions(); showSound();
+})();
+</script>
+</body>
+</html>

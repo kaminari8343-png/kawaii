@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画像版キャラクター 比較ページ</title>
+<style>
+  :root { --pink: #ff7eb6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 system-ui, sans-serif; background: #fff0f7; color: #4a3040; }
+  h1 { font-size: 18px; margin: 0; padding: 12px 16px; background: #ffc6e0; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; padding: 16px; align-items: start; }
+  section { background: #fff; border-radius: 14px; padding: 12px; box-shadow: 0 2px 8px rgba(200, 80, 130, .15); }
+  .frame { position: relative; width: 100%; aspect-ratio: 1086 / 1448; border-radius: 10px; overflow: hidden; background: var(--bg, #fff3e0); }
+  .frame.svg { aspect-ratio: auto; height: min(78vh, 760px); }
+  .frame img, .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; transform-origin: 50% 50%; pointer-events: none; }
+  .frame iframe { pointer-events: auto; }
+  .checker { --bg: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 24px 24px; }
+  .dark { --bg: #2b2a55; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; align-items: center; }
+  .chip { border: 2px solid #ffd3e6; background: #fff; border-radius: 12px; padding: 2px; width: 64px; height: 76px; cursor: pointer; overflow: hidden; }
+  .chip[aria-pressed="true"] { border-color: var(--pink); box-shadow: 0 0 0 2px #ffc0dd; }
+  .chip img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .chip.none { display: grid; place-items: center; font-size: 12px; }
+  .ctl { display: grid; grid-template-columns: 4.2em 1fr 4.2em; gap: 6px; align-items: center; font-size: 13px; }
+  .ctl input[type=range] { width: 100%; }
+  .ctl output { text-align: right; font-variant-numeric: tabular-nums; }
+  button.act { border: 0; background: var(--pink); color: #fff; border-radius: 10px; padding: 8px 12px; font: inherit; cursor: pointer; }
+  button.act.sub { background: #b99ad8; }
+  textarea { width: 100%; height: 150px; font: 12px/1.4 ui-monospace, monospace; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .grid .frame { border-radius: 8px; }
+  .cap { font-size: 11px; text-align: center; color: #8a6a7a; }
+  .note { font-size: 12px; color: #8a6a7a; }
+</style>
+</head>
+<body>
+<h1>画像版キャラクター 比較ページ（いまのSVG版 ⇔ 画像版）</h1>
+<main>
+  <section>
+    <h2>① いまのSVG版</h2>
+    <div class="frame svg"><iframe src="index.html?nosplash" title="SVG版"></iframe></div>
+    <p class="note">そのまま遊べます（上のボタンで着せ替え）。</p>
+  </section>
+
+  <section>
+    <h2>② 画像版（重ね表示）</h2>
+    <div class="frame" id="stage"></div>
+    <div class="row" id="bgs">
+      <button class="act sub" data-bg="">ふつう</button><button class="act sub" data-bg="checker">透過の確認</button><button class="act sub" data-bg="dark">くらい背景</button>
+    </div>
+    <h2 style="margin-top:10px">洋服</h2><div class="row" id="pickOutfit"></div>
+    <h2>髪</h2><div class="row" id="pickHair"></div>
+  </section>
+
+  <section>
+    <h2>③ 位置の調整（パーツごと）</h2>
+    <div id="controls"></div>
+    <div class="row"><button class="act" id="copy">設定をコピー</button><button class="act sub" id="reset">もとにもどす</button></div>
+    <textarea id="json" readonly></textarea>
+    <p class="note">キャンバスの中心を基準に「拡大率」をかけ、そのあと x / y（キャンバス上のpx。右・下が＋）だけずらします。値が決まったら「設定をコピー」して教えてください。</p>
+  </section>
+
+  <section style="grid-column: 1 / -1">
+    <h2>④ 全部の組み合わせ（洋服 × 髪）</h2>
+    <div class="grid" id="grid" style="max-width:900px"></div>
+  </section>
+</main>
+<script src="assets/parts.js"></script>
+<script>
+(() => {
+  const P = JSON.parse(JSON.stringify(window.KAWAII_PARTS)), ORIG = JSON.parse(JSON.stringify(window.KAWAII_PARTS));
+  const W = P.canvas.w, H = P.canvas.h;
+  const q = new URLSearchParams(location.search);
+  const sel = { outfit: q.get('dress') || 'pink', hair: q.get('hair') || 'bob' };
+  const $ = id => document.getElementById(id);
+  const label = { pink: 'ピンク', yellow: '黄', blue: '青', bob: 'ボブ', lowTwin: '低い二つ結び', twintail: 'ツインテール' };
+
+  const tf = p => `translate(${p.x / W * 100}%, ${p.y / H * 100}%) scale(${p.scale})`;
+  // 1枚のキャンバスに素体・洋服・髪を重ねる
+  function compose(frame, outfit, hair) {
+    frame.innerHTML = '';
+    const add = p => { const i = new Image(); i.src = p.src; i.alt = ''; i.style.transform = tf(p); frame.appendChild(i); };
+    add(P.body);
+    if (outfit) add(P.outfits[outfit]);
+    if (hair) add(P.hairs[hair]);
+  }
+  const draw = () => {
+    compose($('stage'), sel.outfit, sel.hair);
+    document.querySelectorAll('#grid .frame').forEach(f => compose(f, f.dataset.o, f.dataset.h));
+    $('json').value = JSON.stringify({ outfits: P.outfits, hairs: P.hairs }, null, 2).replace(/"src": "[^"]*",?\s*/g, '');
+  };
+
+  function chips(el, group, key) {
+    el.innerHTML = '';
+    const mk = (k, src) => {
+      const b = document.createElement('button'); b.className = 'chip' + (src ? '' : ' none'); b.setAttribute('aria-pressed', sel[key] === k);
+      b.innerHTML = src ? `<img src="${src}" alt="${label[k]}" title="${label[k]}">` : 'なし';
+      b.onclick = () => { sel[key] = k; chips(el, group, key); draw(); };
+      el.appendChild(b);
+    };
+    mk(null, null);
+    for (const k of Object.keys(group)) mk(k, group[k].src);
+  }
+
+  function controls() {
+    const root = $('controls'); root.innerHTML = '';
+    const part = (title, p) => {
+      const h = document.createElement('h2'); h.textContent = title; h.style.marginTop = '10px'; root.appendChild(h);
+      for (const [k, name, min, max, step] of [['scale', '拡大率', .3, 1.5, .01], ['x', 'x', -400, 400, 1], ['y', 'y', -700, 400, 1]]) {
+        const d = document.createElement('div'); d.className = 'ctl';
+        d.innerHTML = `<span>${name}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${p[k]}"><output>${p[k]}</output>`;
+        const r = d.querySelector('input'), o = d.querySelector('output');
+        r.oninput = () => { p[k] = +r.value; o.textContent = p[k]; draw(); };
+        root.appendChild(d);
+      }
+    };
+    for (const k of Object.keys(P.outfits)) part('洋服：' + label[k], P.outfits[k]);
+    for (const k of Object.keys(P.hairs)) part('髪：' + label[k], P.hairs[k]);
+  }
+
+  // 全組み合わせ
+  for (const o of Object.keys(P.outfits)) for (const h of Object.keys(P.hairs)) {
+    const w = document.createElement('div'); w.innerHTML = `<div class="frame" data-o="${o}" data-h="${h}"></div><div class="cap">${label[o]} × ${label[h]}</div>`;
+    $('grid').appendChild(w);
+  }
+
+  for (const b of document.querySelectorAll('#bgs button')) b.onclick = () => {
+    for (const f of document.querySelectorAll('#stage, #grid .frame')) { f.classList.remove('checker', 'dark'); if (b.dataset.bg) f.classList.add(b.dataset.bg); }
+  };
+  $('copy').onclick = async () => { $('json').select(); try { await navigator.clipboard.writeText($('json').value); $('copy').textContent = 'コピーしました'; } catch (_) { document.execCommand('copy'); } setTimeout(() => $('copy').textContent = '設定をコピー', 1500); };
+  $('reset').onclick = () => { Object.assign(P.outfits, JSON.parse(JSON.stringify(ORIG.outfits))); Object.assign(P.hairs, JSON.parse(JSON.stringify(ORIG.hairs))); controls(); draw(); };
+
+  chips($('pickOutfit'), P.outfits, 'outfit'); chips($('pickHair'), P.hairs, 'hair'); controls(); draw();
+})();
+</script>
+</body>
+</html>

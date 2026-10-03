@@ -1040,6 +1040,7 @@
 
   // 起動画面は少しだけ見せて、ふわっと消す（さわると早く消える）
   const splash = $('splash');
+  if (location.search.includes('nosplash')) { splash.remove(); }
   const hideSplash = () => { splash.classList.add('hide'); setTimeout(() => splash.remove(), 600); };
   const splashTimer = setTimeout(hideSplash, 1300);
   splash.addEventListener('pointerdown', () => { clearTimeout(splashTimer); hideSplash(); });

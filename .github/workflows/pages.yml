@@ -26,7 +26,8 @@ jobs:
       - name: Collect site files
         run: |
           mkdir _site
-          cp -r index.html manifest.webmanifest sw.js icons .nojekyll _site/
+          cp -r index.html compare.html manifest.webmanifest sw.js icons .nojekyll _site/
+          mkdir _site/assets && cp assets/*.webp assets/parts.js _site/assets/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -104,6 +104,8 @@
   .opt:active { transform: scale(.93); }
   .opt[aria-pressed="true"] { border-color: var(--accent); background: #fff0f8; box-shadow: 0 0 0 3px #ffc0dd; }
   .opt svg { width: 88%; height: 88%; }
+  #options[data-cat="outfit"] { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  #options[data-cat="outfit"] .opt { aspect-ratio: 3 / 4; }
   .swatch { width: 70%; height: 70%; border-radius: 50%; border: 3px solid rgba(0,0,0,.12); }
 </style>
 </head>
@@ -114,6 +116,8 @@
       <defs>
         <!-- 髪色グラデーション（JSで色を差し替え） -->
         <linearGradient id="hairGrad" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="480"></linearGradient>
+        <!-- 着ぐるみ時、前髪をフードの内側におさめる -->
+        <clipPath id="headClip"><ellipse cx="200" cy="238" rx="86" ry="80"/></clipPath>
       </defs>
 
       <g id="bob">
@@ -123,31 +127,13 @@
         <g id="layer-hair-back"></g>
 
         <!-- からだ -->
-        <g id="layer-body">
-          <line x1="175" y1="470" x2="172" y2="595" stroke="var(--skin)" stroke-width="30" stroke-linecap="round"/>
-          <line x1="225" y1="470" x2="228" y2="595" stroke="var(--skin)" stroke-width="30" stroke-linecap="round"/>
-          <ellipse cx="166" cy="608" rx="27" ry="15" fill="#ff7aa8"/>
-          <ellipse cx="234" cy="608" rx="27" ry="15" fill="#ff7aa8"/>
-          <line x1="150" y1="352" x2="118" y2="458" stroke="var(--skin)" stroke-width="26" stroke-linecap="round"/>
-          <line x1="250" y1="352" x2="282" y2="458" stroke="var(--skin)" stroke-width="26" stroke-linecap="round"/>
-          <circle cx="116" cy="466" r="15" fill="var(--skin)"/>
-          <circle cx="284" cy="466" r="15" fill="var(--skin)"/>
-          <rect x="183" y="305" width="34" height="50" rx="14" fill="var(--skin)"/>
-          <rect x="142" y="332" width="116" height="170" rx="40" fill="var(--skin)"/>
-        </g>
+        <g id="layer-body"></g>
 
-        <!-- 洋服（あとで着せ替え対応。いまは下着がわりの基本ふく） -->
-        <g id="layer-clothes">
-          <path d="M146 345 Q200 362 254 345 L262 468 Q200 482 138 468 Z" fill="#fff" stroke="#f0c8da" stroke-width="3"/>
-          <path d="M138 468 Q200 482 262 468 L268 515 Q200 530 132 515 Z" fill="#ffc4dc" stroke="#f0a6c6" stroke-width="3"/>
-        </g>
+        <!-- 洋服（着ぐるみのフードうしろ側もここ） -->
+        <g id="layer-clothes"></g>
 
         <!-- あたま -->
-        <g id="layer-head">
-          <circle cx="111" cy="252" r="15" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2"/>
-          <circle cx="289" cy="252" r="15" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2"/>
-          <ellipse cx="200" cy="235" rx="91" ry="86" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2.5"/>
-        </g>
+        <g id="layer-head"></g>
 
         <!-- かお -->
         <g id="layer-face">
@@ -165,6 +151,9 @@
 
         <!-- 前髪・結び目 -->
         <g id="layer-hair-front"></g>
+
+        <!-- 洋服の手前（着ぐるみのフードのふち） -->
+        <g id="layer-clothes-front"></g>
 
         <!-- アクセサリー（あとで追加） -->
         <g id="layer-acc"></g>
@@ -206,30 +195,128 @@
   const HAIR = {
     long: {
       back: P('M200 112 C108 112 86 190 90 270 C92 340 76 420 96 478 Q200 500 304 478 C324 420 308 340 310 270 C314 190 292 112 200 112 Z'),
-      front: bangsSweep,
+      bangs: bangsSweep, extra: '',
     },
     twin: {
       back: cap + TAIL + mirror(TAIL),
-      front: bangsBlunt + tie(106, 188) + tie(294, 188),
+      bangs: bangsBlunt, extra: tie(106, 188) + tie(294, 188),
     },
     odango: {
       back: circ(118, 104, 44) + circ(282, 104, 44) + cap,
-      front: bangsSide + tie(132, 150) + tie(268, 150),
+      bangs: bangsSide, extra: tie(132, 150) + tie(268, 150),
     },
     pony: {
       back: cap + P('M276 128 C350 120 372 230 350 330 C346 380 322 408 300 420 C318 360 316 300 296 250 Z'),
-      front: bangsSweep + tie(290, 150),
+      bangs: bangsSweep, extra: tie(290, 150),
     },
     short: {
       back: P('M200 112 C112 112 90 190 92 262 C92 300 88 322 100 342 Q200 360 300 342 C312 322 308 300 308 262 C310 190 288 112 200 112 Z'),
-      front: bangsBlunt,
+      bangs: bangsBlunt, extra: '',
     },
     perm: {
       back: `<ellipse class="hp" cx="200" cy="228" rx="104" ry="100"/>` +
             curls(16, (i, n) => { const a = i / n * Math.PI * 2; return circ(200 + 106 * Math.cos(a), 232 + 108 * Math.sin(a), 30); }),
-      front: P('M104 232 C92 130 308 130 296 232 C270 190 130 190 104 232 Z') +
+      bangs: P('M104 232 C92 130 308 130 296 232 C270 190 130 190 104 232 Z') +
              curls(7, (i, n) => circ(122 + i * 26, 176 + 10 * Math.sin(i / (n - 1) * Math.PI) - 8, 25)),
+      extra: '',
     },
+  };
+
+
+  /* ================= からだ・あたま・洋服 ================= */
+  const limb = (x1, y1, x2, y2, w, fill, edge) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${edge}" stroke-width="${w + 5}" stroke-linecap="round"/>` +
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${fill}" stroke-width="${w}" stroke-linecap="round"/>`;
+  const star = (x, y, r, fill) => {
+    const pts = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * .45 : r; return (x + q * Math.cos(a)).toFixed(1) + ',' + (y + q * Math.sin(a)).toFixed(1); });
+    return `<polygon points="${pts.join(' ')}" fill="${fill}" stroke-linejoin="round"/>`;
+  };
+  const dots = (pts, r, fill) => pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join('');
+  const sk = 'stroke-linejoin="round"';
+
+  const BODY =
+    `<line x1="175" y1="470" x2="172" y2="595" stroke="var(--skin)" stroke-width="30" stroke-linecap="round"/>` +
+    `<line x1="225" y1="470" x2="228" y2="595" stroke="var(--skin)" stroke-width="30" stroke-linecap="round"/>` +
+    `<ellipse cx="166" cy="608" rx="27" ry="15" fill="#ff7aa8"/><ellipse cx="234" cy="608" rx="27" ry="15" fill="#ff7aa8"/>` +
+    `<line x1="150" y1="352" x2="118" y2="458" stroke="var(--skin)" stroke-width="26" stroke-linecap="round"/>` +
+    `<line x1="250" y1="352" x2="282" y2="458" stroke="var(--skin)" stroke-width="26" stroke-linecap="round"/>` +
+    `<circle cx="116" cy="466" r="15" fill="var(--skin)"/><circle cx="284" cy="466" r="15" fill="var(--skin)"/>` +
+    `<rect x="183" y="305" width="34" height="50" rx="14" fill="var(--skin)"/>` +
+    `<rect x="142" y="332" width="116" height="170" rx="40" fill="var(--skin)"/>`;
+  const HEAD =
+    `<circle cx="111" cy="252" r="15" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2"/>` +
+    `<circle cx="289" cy="252" r="15" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2"/>` +
+    `<ellipse cx="200" cy="235" rx="91" ry="86" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="2.5"/>`;
+  const MINI_FACE =
+    `<ellipse cx="160" cy="247" rx="13" ry="18" fill="#3d2a30"/><ellipse cx="240" cy="247" rx="13" ry="18" fill="#3d2a30"/>` +
+    `<path d="M184 285 Q200 304 216 285" stroke="#c0486a" stroke-width="6" fill="none" stroke-linecap="round"/>`;
+
+  // body = 手前に重ねる洋服 / front = フードのふち。suit:true は着ぐるみ（うしろ髪と前髪以外の髪を隠す）
+  const OUTFITS = {
+    casual: { body:
+      `<path d="M146 345 Q200 362 254 345 L262 468 Q200 482 138 468 Z" fill="#fff" stroke="#f0c8da" stroke-width="3"/>` +
+      `<path d="M138 468 Q200 482 262 468 L268 515 Q200 530 132 515 Z" fill="#ffc4dc" stroke="#f0a6c6" stroke-width="3"/>` },
+
+    dress: { body:
+      `<path d="M148 410 Q200 428 252 410 L306 540 Q200 566 94 540 Z" fill="#ff6f91" stroke="#d94b72" stroke-width="3" ${sk}/>` +
+      `<path d="M94 540 Q200 566 306 540 L312 558 Q200 590 88 558 Z" fill="#ffa8bf" stroke="#d94b72" stroke-width="3" ${sk}/>` +
+      dots([[140, 500], [176, 520], [214, 506], [250, 522], [270, 490], [200, 470], [120, 528]], 5, '#ffd0dc') +
+      `<path d="M146 350 Q200 368 254 350 L252 420 Q200 436 148 420 Z" fill="#ff6f91" stroke="#d94b72" stroke-width="3" ${sk}/>` +
+      `<path d="M144 410 Q200 428 256 410 L256 426 Q200 444 144 426 Z" fill="#d94b72"/>` +
+      `<ellipse cx="180" cy="424" rx="19" ry="10" transform="rotate(18 180 424)" fill="#ffa8bf" stroke="#d94b72" stroke-width="2.5"/>` +
+      `<ellipse cx="220" cy="424" rx="19" ry="10" transform="rotate(-18 220 424)" fill="#ffa8bf" stroke="#d94b72" stroke-width="2.5"/>` +
+      `<circle cx="200" cy="423" r="8" fill="#ff6f91" stroke="#d94b72" stroke-width="2.5"/>` },
+
+    onepiece: { body:
+      `<path d="M146 346 Q200 364 254 346 L270 440 L296 535 Q200 556 104 535 L130 440 Z" fill="#ffd95e" stroke="#e8aa2c" stroke-width="3" ${sk}/>` +
+      dots([[165, 400], [235, 396], [150, 470], [200, 450], [250, 468], [130, 515], [180, 505], [225, 515], [270, 512]], 6, '#fff') +
+      limb(152, 356, 140, 394, 32, '#ffd95e', '#e8aa2c') + limb(248, 356, 260, 394, 32, '#ffd95e', '#e8aa2c') +
+      `<path d="M168 350 Q200 384 232 350 L224 343 Q200 365 176 343 Z" fill="#fff" stroke="#f0d8a0" stroke-width="2.5" ${sk}/>` +
+      dots([[200, 396], [200, 420]], 4.5, '#e8aa2c') },
+
+    pajama: { body:
+      limb(175, 470, 172, 584, 36, '#9fd8ff', '#5aaee6') + limb(225, 470, 228, 584, 36, '#9fd8ff', '#5aaee6') +
+      limb(172, 582, 172, 590, 38, '#fff', '#bcd9ee') + limb(228, 582, 228, 590, 38, '#fff', '#bcd9ee') +
+      star(176, 520, 9, '#ffe066') + star(226, 545, 8, '#ffe066') +
+      `<path d="M144 346 Q200 364 256 346 L262 484 Q200 502 138 484 Z" fill="#9fd8ff" stroke="#5aaee6" stroke-width="3" ${sk}/>` +
+      limb(152, 356, 124, 450, 32, '#9fd8ff', '#5aaee6') + limb(248, 356, 276, 450, 32, '#9fd8ff', '#5aaee6') +
+      limb(124, 447, 121, 456, 34, '#fff', '#bcd9ee') + limb(276, 447, 279, 456, 34, '#fff', '#bcd9ee') +
+      dots([[200, 385], [200, 420], [200, 455]], 4.5, '#fff') +
+      star(168, 405, 9, '#ffe066') + star(236, 440, 8, '#ffe066') + star(160, 462, 7, '#ffe066') },
+
+    swim: { body:
+      `<path d="M148 350 Q200 370 252 350 L248 410 Q264 440 258 482 Q200 500 142 482 Q136 440 152 410 Z" fill="#4fc3f7" stroke="#1e94c8" stroke-width="3" ${sk}/>` +
+      `<path d="M142 468 Q200 486 258 468 L272 502 Q200 526 128 502 Z" fill="#8fdcfb" stroke="#1e94c8" stroke-width="3" ${sk}/>` +
+      dots([[176, 385], [226, 398], [200, 430], [166, 450], [236, 452], [150, 492], [200, 504], [250, 492]], 5.5, '#fff') +
+      `<path d="M200 420 q-14 -12 -14 -22 a8 8 0 0 1 14 -5 a8 8 0 0 1 14 5 q0 10 -14 22 z" fill="#ff7aa8"/>` },
+
+    princess: { body:
+      `<path d="M128 420 Q200 446 272 420 L346 570 Q200 606 54 570 Z" fill="#ffb3d9" stroke="#e87fb5" stroke-width="3" ${sk}/>` +
+      `<path d="M200 440 Q150 500 112 574 Q200 598 288 574 Q250 500 200 440 Z" fill="#ffe0f0" opacity=".85"/>` +
+      `<path d="M54 570 Q200 606 346 570" stroke="#f5c542" stroke-width="6" fill="none" stroke-linecap="round"/>` +
+      star(110, 530, 9, '#ffd84d') + star(290, 536, 9, '#ffd84d') + star(200, 520, 10, '#ffd84d') + star(160, 560, 7, '#ffd84d') + star(240, 562, 7, '#ffd84d') +
+      `<path d="M146 350 Q200 368 254 350 L256 430 Q200 446 144 430 Z" fill="#ff8fc4" stroke="#e87fb5" stroke-width="3" ${sk}/>` +
+      `<path d="M143 424 Q200 442 257 424 L257 440 Q200 458 143 440 Z" fill="#f5c542" stroke="#d9a41e" stroke-width="2.5" ${sk}/>` +
+      `<path d="M200 380 l11 14 l-11 14 l-11 -14 z" fill="#8fe8ff" stroke="#3fb7d8" stroke-width="2.5" ${sk}/>` +
+      `<circle cx="138" cy="364" r="26" fill="#ffb3d9" stroke="#e87fb5" stroke-width="3"/><circle cx="262" cy="364" r="26" fill="#ffb3d9" stroke="#e87fb5" stroke-width="3"/>` +
+      dots([[130, 358], [270, 358]], 4, '#fff') },
+
+    rabbit: { suit: true, body:
+      limb(175, 470, 172, 595, 32, '#fff', '#ecc3d3') + limb(225, 470, 228, 595, 32, '#fff', '#ecc3d3') +
+      `<ellipse cx="164" cy="608" rx="31" ry="17" fill="#fff" stroke="#ecc3d3" stroke-width="3"/><ellipse cx="236" cy="608" rx="31" ry="17" fill="#fff" stroke="#ecc3d3" stroke-width="3"/>` +
+      `<ellipse cx="164" cy="611" rx="14" ry="8" fill="#ffc4dc"/><ellipse cx="236" cy="611" rx="14" ry="8" fill="#ffc4dc"/>` +
+      `<rect x="138" y="328" width="124" height="180" rx="46" fill="#fff" stroke="#ecc3d3" stroke-width="3"/>` +
+      `<ellipse cx="200" cy="440" rx="38" ry="50" fill="#ffe0ec"/>` +
+      limb(150, 354, 118, 458, 30, '#fff', '#ecc3d3') + limb(250, 354, 282, 458, 30, '#fff', '#ecc3d3') +
+      `<circle cx="116" cy="468" r="19" fill="#fff" stroke="#ecc3d3" stroke-width="3"/><circle cx="284" cy="468" r="19" fill="#fff" stroke="#ecc3d3" stroke-width="3"/>` +
+      `<circle cx="116" cy="472" r="7" fill="#ffc4dc"/><circle cx="284" cy="472" r="7" fill="#ffc4dc"/>` +
+      // フードのうしろ側と耳（あたまの後ろに入る）
+      `<g transform="rotate(-12 150 140)"><ellipse cx="150" cy="78" rx="26" ry="64" fill="#fff" stroke="#ecc3d3" stroke-width="3"/><ellipse cx="150" cy="86" rx="12" ry="44" fill="#ffb8d2"/></g>` +
+      `<g transform="rotate(12 250 140)"><ellipse cx="250" cy="78" rx="26" ry="64" fill="#fff" stroke="#ecc3d3" stroke-width="3"/><ellipse cx="250" cy="86" rx="12" ry="44" fill="#ffb8d2"/></g>` +
+      `<ellipse cx="200" cy="232" rx="103" ry="97" fill="#fff" stroke="#ecc3d3" stroke-width="3"/>`,
+      front:
+      `<path fill-rule="evenodd" fill="#fff" stroke="#ecc3d3" stroke-width="3" d="M97 232 A103 97 0 1 0 303 232 A103 97 0 1 0 97 232 Z M114 238 A86 80 0 1 0 286 238 A86 80 0 1 0 114 238 Z"/>` +
+      `<ellipse cx="200" cy="238" rx="86" ry="80" fill="none" stroke="#ffb8d2" stroke-width="5"/>` },
   };
 
   /* ================= 髪色 ================= */
@@ -244,7 +331,7 @@
   };
 
   /* ================= 状態 ================= */
-  const state = { hair: 'long', color: 'pink' };   // 洋服・アクセ・背景は後で追加
+  const state = { hair: 'long', color: 'pink', outfit: 'casual' };   // アクセ・背景は後で追加
 
   const $ = id => document.getElementById(id);
   const girl = $('girl');
@@ -258,8 +345,16 @@
     document.documentElement.style.setProperty('--hs', c.edge);
   }
 
+  // 着ぐるみ時はうしろ髪・結び目を隠し、前髪だけフードの内側に見せる
+  const hairParts = () => {
+    const h = HAIR[state.hair], suit = OUTFITS[state.outfit].suit;
+    return suit
+      ? { back: '', front: `<g clip-path="url(#headClip)">${h.bangs}</g>` }
+      : { back: h.back, front: h.bangs + h.extra };
+  };
+
   function applyHair(animate) {
-    const h = HAIR[state.hair];
+    const h = hairParts();
     $('layer-hair-back').innerHTML = h.back;
     $('layer-hair-front').innerHTML = h.front;
     if (animate) {
@@ -269,13 +364,29 @@
     }
   }
 
+  function applyOutfit() {
+    const o = OUTFITS[state.outfit];
+    $('layer-clothes').innerHTML = o.body;
+    $('layer-clothes-front').innerHTML = o.front || '';
+    applyHair(false);
+  }
+
   /* ================= パネル ================= */
   const miniHair = key => `<svg viewBox="25 70 350 350"><circle cx="200" cy="235" r="90" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="3"/>` +
-    HAIR[key].back + `<ellipse cx="200" cy="235" rx="91" ry="86" fill="var(--skin)"/>` + HAIR[key].front + `</svg>`;
+    HAIR[key].back + `<ellipse cx="200" cy="235" rx="91" ry="86" fill="var(--skin)"/>` + HAIR[key].bangs + HAIR[key].extra + `</svg>`;
+
+  // 洋服ボタン: いまの髪をかぶせた小さな全身の絵
+  const miniOutfit = key => {
+    const o = OUTFITS[key], h = HAIR[state.hair];
+    return `<svg viewBox="${o.suit ? '50 5 300 625' : '30 95 340 535'}">` +
+      (o.suit ? '' : h.back) + BODY + o.body + HEAD + MINI_FACE +
+      (o.suit ? `<g clip-path="url(#headClip)">${h.bangs}</g>` : h.bangs + h.extra) + (o.front || '') + `</svg>`;
+  };
 
   const CATEGORIES = [
     { id: 'hair', icon: '💇‍♀️', options: Object.keys(HAIR), render: miniHair },
     { id: 'color', icon: '🎨', options: Object.keys(COLORS), render: k => `<div class="swatch" style="background:${COLORS[k].swatch}"></div>` },
+    { id: 'outfit', icon: '👗', options: Object.keys(OUTFITS), render: miniOutfit },
   ];
   let currentCat = 'hair';
 
@@ -285,6 +396,7 @@
   }
   function renderOptions() {
     const cat = CATEGORIES.find(c => c.id === currentCat);
+    $('options').dataset.cat = cat.id;
     $('options').innerHTML = cat.options.map(k =>
       `<button class="opt" data-key="${k}" aria-pressed="${state[cat.id] === k}">${cat.render(k)}</button>`).join('');
   }
@@ -296,8 +408,12 @@
   $('options').addEventListener('click', e => {
     const b = e.target.closest('.opt'); if (!b) return;
     state[currentCat] = b.dataset.key;
-    if (currentCat === 'hair') applyHair(true); else applyColor();
-    sparkleAround(); Sound.sparkle();
+    if (currentCat === 'outfit') {
+      spin(applyOutfit);               // 洋服: くるっと回って着がえ
+    } else {
+      if (currentCat === 'hair') applyHair(true); else applyColor();
+      sparkleAround(); Sound.sparkle();
+    }
     renderOptions();
   });
 
@@ -329,6 +445,7 @@
         if (muted || !ensure()) return; const t = ctx.currentTime;
         [0, 1, 2, 3, 4].forEach(i => note(620 + (i % 2) * 140, t + i * .1, .09, 'triangle', .2, 880 + (i % 2) * 140));
       },
+      twirl() { if (muted || !ensure()) return; note(420, ctx.currentTime, .45, 'sine', .1, 1700); },
       tick() { if (muted || !ensure()) return; note(880, ctx.currentTime, .08, 'sine', .1); },
     };
   })();
@@ -380,19 +497,35 @@
     laugh(e.clientX - s.left, e.clientY - s.top);
   });
 
+  /* ================= 着がえのくるくる ================= */
+  // 回転のとちゅう（よこ向きで見えないとき）に着がえを入れ替える
+  function spin(swap) {
+    Sound.twirl();
+    $('bob').animate([
+      { transform: 'scaleX(1) translateY(0)' },
+      { transform: 'scaleX(.03) translateY(-26px)', offset: .25 },
+      { transform: 'scaleX(-1) translateY(-34px)', offset: .5 },
+      { transform: 'scaleX(.03) translateY(-26px)', offset: .75 },
+      { transform: 'scaleX(1) translateY(0)' },
+    ], { duration: 800, easing: 'ease-in-out' });
+    setTimeout(() => { swap(); sparkleAround(); Sound.sparkle(); }, 200);
+  }
+
   /* ================= おまかせ・おと ================= */
   const pick = a => a[Math.floor(Math.random() * a.length)];
   $('omakase').addEventListener('click', () => {
     Sound.unlock();
-    state.hair = pick(Object.keys(HAIR)); state.color = pick(Object.keys(COLORS));
-    applyColor(); applyHair(true); renderOptions(); sparkleAround(); Sound.sparkle();
+    state.hair = pick(Object.keys(HAIR)); state.color = pick(Object.keys(COLORS)); state.outfit = pick(Object.keys(OUTFITS));
+    spin(() => { applyColor(); applyOutfit(); });
+    renderOptions();
   });
   const soundBtn = $('sound');
   const showSound = () => { soundBtn.textContent = Sound.muted ? '🔇' : '🔊'; };
   soundBtn.addEventListener('click', () => { Sound.unlock(); Sound.toggle(); showSound(); Sound.tick(); });
 
   /* ================= 起動 ================= */
-  applyColor(); applyHair(false); renderTabs(); renderOptions(); showSound();
+  $('layer-body').innerHTML = BODY; $('layer-head').innerHTML = HEAD;
+  applyColor(); applyOutfit(); renderTabs(); renderOptions(); showSound();
 })();
 </script>
 </body>

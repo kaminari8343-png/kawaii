@@ -30,7 +30,7 @@
     grid-template-rows: minmax(0, 1fr) auto;
   }
   @media (orientation: landscape) {
-    #app { grid-template-columns: minmax(0, 1fr) clamp(300px, 36vw, 440px); grid-template-rows: 1fr; }
+    #app { grid-template-columns: minmax(0, 1fr) clamp(340px, 40vw, 460px); grid-template-rows: 1fr; }
   }
 
   /* ---------- ステージ ---------- */
@@ -108,10 +108,10 @@
   @media (orientation: portrait) { #panel { max-height: 42dvh; } }
   @media (orientation: landscape) { #panel { border-top: 0; border-left: 4px solid #ffc6e0; padding-top: max(12px, env(safe-area-inset-top)); } }
 
-  #tabs { display: flex; gap: 8px; flex: none; overflow-x: auto; padding-bottom: 2px; }
+  #tabs { display: flex; gap: 4px; flex: none; overflow-x: auto; padding: 6px 2px; margin: -6px 0 -2px; }
   .tab {
-    flex: 1 1 0; height: 64px; min-width: 60px; border-radius: 20px;
-    background: #ffeaf4; font-size: 32px; display: grid; place-items: center;
+    flex: 1 1 0; height: 64px; min-width: 52px; border-radius: 20px;
+    background: #ffeaf4; font-size: 30px; display: grid; place-items: center;
   }
   .tab[aria-selected="true"] { background: var(--accent); box-shadow: 0 4px 0 #e0558f; }
 
@@ -150,6 +150,25 @@
   @keyframes flapR { 50% { transform: rotate(7deg); } }
   .twinkle { animation: twinkle 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
   @keyframes twinkle { 50% { transform: scale(1.18) rotate(12deg); } }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 8; }
+  .tab.bump { animation: bump .5s; }
+  @keyframes bump { 40% { transform: scale(1.12) rotate(-6deg); } 70% { transform: scale(.95); } }
+  #options[data-cat="fav"] { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+  .favwrap { position: relative; transition: transform .2s, opacity .2s; }
+  .favwrap .opt { width: 100%; aspect-ratio: 5 / 8; padding: 0; border-width: 3px; }
+  .favwrap .opt svg { width: 100%; height: 100%; display: block; }
+  .favwrap .opt.fresh { animation: fresh .55s ease-out; }
+  @keyframes fresh { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } }
+  .trash {
+    display: none; position: absolute; right: 2px; top: 2px; width: 52px; height: 52px; border-radius: 50%;
+    background: #ff6f91; font-size: 26px; place-items: center; z-index: 2;
+    box-shadow: 0 3px 0 #d94b72, 0 5px 10px rgba(0,0,0,.25);
+  }
+  .favwrap.del .trash { display: grid; animation: fresh .3s ease-out; }
+  .favwrap.del .opt { animation: jiggle .28s ease-in-out infinite alternate; }
+  @keyframes jiggle { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
+  .empty { grid-column: 1 / -1; display: grid; place-items: center; padding: 16px 0; }
+  .empty svg { width: min(44%, 150px); height: auto; }
   .swatch { width: 70%; height: 70%; border-radius: 50%; border: 3px solid rgba(0,0,0,.12); }
 </style>
 </head>
@@ -210,7 +229,9 @@
       </g>
     </svg>
     <div id="fx"></div>
+    <div id="flash"></div>
     <div id="tools">
+      <button class="tool" id="shutter" aria-label="ほぞん">📷</button>
       <button class="tool" id="omakase" aria-label="おまかせ">🪄</button>
       <button class="tool" id="sound" aria-label="おと">🔊</button>
     </div>
@@ -521,7 +542,7 @@
         ${stars}
         <circle cx="110" cy="150" r="64" fill="#fff6c0" opacity=".12"/>
         <mask id="ng-m"><rect width="600" height="800" fill="#fff"/><circle cx="130" cy="138" r="38" fill="#000"/></mask><circle cx="110" cy="150" r="44" fill="#fff3b0" mask="url(#ng-m)"/>
-        <g class="shoot"><g transform="translate(470 80) rotate(-34)"><polygon points="0,-3 100,0 0,3" fill="url(#ng-tail)"/><circle r="4" fill="#fff"/></g></g>
+        <g class="shoot"><g transform="translate(450 200) rotate(-34)"><polygon points="0,-3 100,0 0,3" fill="url(#ng-tail)"/><circle r="4" fill="#fff"/></g></g>
         <path d="M0 600 Q150 540 300 590 T600 570 L600 800 L0 800 Z" fill="#2c2a68"/>
         ${tree(70, 90)}${tree(100, 60)}${tree(520, 80)}${tree(552, 56)}
         <path d="M0 650 Q200 620 400 648 T600 640 L600 800 L0 800 Z" fill="#4a4796"/>`;
@@ -555,8 +576,8 @@
   }
 
   // 着ぐるみ時はうしろ髪・結び目を隠し、前髪だけフードの内側に見せる
-  const hairParts = () => {
-    const h = HAIR[state.hair], suit = OUTFITS[state.outfit].suit;
+  const hairParts = (look = state) => {
+    const h = HAIR[look.hair], suit = OUTFITS[look.outfit].suit;
     return suit
       ? { back: '', front: `<g clip-path="url(#headClip)">${h.bangs}</g>` }
       : { back: h.back, front: h.bangs + h.extra };
@@ -583,17 +604,22 @@
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, easing: 'ease-in-out' }).onfinish = clean;
   }
 
-  function applyAcc(popKey) {
+  const accParts = (look = state) => {
     let back = '', front = '';
-    const suit = !!OUTFITS[state.outfit].suit;
+    const suit = !!OUTFITS[look.outfit].suit;
     for (const k of ACC_ORDER) {
-      if (!state.acc.includes(k)) continue;
+      if (!look.acc.includes(k)) continue;
       const a = ACC[k];
       if (a.back) back += `<g data-acc="${k}">${a.back}</g>`;
       if (a.front) front += `<g data-acc="${k}">${a.front(suit)}</g>`;
     }
-    $('layer-acc-back').innerHTML = back;
-    $('layer-acc').innerHTML = front;
+    return { back, front };
+  };
+
+  function applyAcc(popKey) {
+    const parts = accParts();
+    $('layer-acc-back').innerHTML = parts.back;
+    $('layer-acc').innerHTML = parts.front;
     if (popKey) {
       for (const el of girl.querySelectorAll(`[data-acc="${popKey}"]`)) {
         el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
@@ -610,6 +636,50 @@
     applyHair(false);
     applyAcc();
   }
+
+
+  /* ================= お気に入り（localStorage。使えなくてもエラーにしない） ================= */
+  const SAVE_KEY = 'kawaii.looks.v1', MAX_LOOKS = 20;
+  const lookKey = l => [l.hair, l.color, l.outfit, l.bg, [...l.acc].sort().join('+')].join('|');
+  // 保存データを検証して、こわれた・古いデータでも安全な形にそろえる
+  const cleanLook = l => {
+    if (!l || !HAIR[l.hair] || !COLORS[l.color] || !OUTFITS[l.outfit] || !BG[l.bg]) return null;
+    const suit = !!OUTFITS[l.outfit].suit;
+    let acc = (Array.isArray(l.acc) ? l.acc : []).filter((k, i, a) => ACC[k] && a.indexOf(k) === i && !(suit && EARS.includes(k)));
+    const ear = acc.find(k => EARS.includes(k)); acc = acc.filter(k => !EARS.includes(k) || k === ear);
+    return { id: String(l.id || Math.random()), hair: l.hair, color: l.color, outfit: l.outfit, bg: l.bg, acc };
+  };
+  let looks = [];
+  try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); if (Array.isArray(v)) looks = v.map(cleanLook).filter(Boolean).slice(0, MAX_LOOKS); } catch (_) {}
+  const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(looks)); } catch (_) {} };   // 失敗してもこのページの間はメモリで動く
+
+  function saveLook() {
+    const cur = cleanLook({ ...state, id: Date.now() + '-' + Math.random().toString(36).slice(2, 7) });
+    looks = [cur, ...looks.filter(l => lookKey(l) !== lookKey(cur))].slice(0, MAX_LOOKS);   // 同じコーデは先頭へ・20件をこえたら古いものから消える
+    persist();
+    return cur.id;
+  }
+
+  // ふだんの姿をそのまま小さく描く（髪色はサムネごとに専用グラデーション）
+  const FACE_THUMB =
+    `<path d="M143 218 Q160 209 177 218 M223 218 Q240 209 257 218" stroke="#8a5a52" stroke-width="4" fill="none" stroke-linecap="round"/>` +
+    `<ellipse cx="160" cy="247" rx="14" ry="19" fill="#3d2a30"/><ellipse cx="240" cy="247" rx="14" ry="19" fill="#3d2a30"/>` +
+    `<circle cx="155" cy="239" r="6.5" fill="#fff"/><circle cx="235" cy="239" r="6.5" fill="#fff"/>` +
+    `<ellipse cx="133" cy="280" rx="16" ry="10" fill="#ff8fa6" opacity=".5"/><ellipse cx="267" cy="280" rx="16" ry="10" fill="#ff8fa6" opacity=".5"/>` +
+    `<path d="M186 287 Q200 302 214 287" stroke="#c0486a" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+  let thumbN = 0;
+  function lookSvg(look) {
+    const id = 'tg' + (++thumbN), c = COLORS[look.color], o = OUTFITS[look.outfit], hp = hairParts(look), ap = accParts(look);
+    const tint = m => m.replace(/class="hp"/g, `class="hp" style="fill:url(#${id});stroke:${c.edge}"`);
+    const grad = `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" ${c.diagonal ? 'x1="70" y1="110" x2="330" y2="420"' : 'x1="0" y1="100" x2="0" y2="480"'}>` +
+      c.stops.map(([col, off]) => `<stop offset="${off}" stop-color="${col}"/>`).join('') + `</linearGradient>`;
+    return `<svg viewBox="0 0 400 640" preserveAspectRatio="xMidYMid slice"><defs>${grad}</defs>` +
+      `<svg width="400" height="640" viewBox="0 0 600 800" preserveAspectRatio="xMidYMax slice">${BG[look.bg]()}</svg>` +
+      `<ellipse cx="200" cy="626" rx="112" ry="14" fill="rgba(50,25,70,.16)"/><ellipse cx="200" cy="626" rx="82" ry="9" fill="rgba(50,25,70,.22)"/>` +
+      tint(ap.back) + tint(hp.back) + BODY + o.body + HEAD + FACE_THUMB + tint(hp.front) + (o.front || '') + tint(ap.front) + `</svg>`;
+  }
+  const EMPTY_ICON = `<svg viewBox="0 0 160 200"><rect x="14" y="14" width="132" height="172" rx="26" fill="none" stroke="#f3b5d1" stroke-width="6" stroke-dasharray="14 12" stroke-linecap="round"/>` +
+    `<path d="M80 58 l13 28 l30 4 l-22 21 l6 30 l-27 -15 l-27 15 l6 -30 l-22 -21 l30 -4 z" fill="#ffe3f0" stroke="#f3b5d1" stroke-width="5" stroke-linejoin="round"/></svg>`;
 
   /* ================= パネル ================= */
   const miniHair = key => `<svg viewBox="25 70 350 350"><circle cx="200" cy="235" r="90" fill="var(--skin)" stroke="var(--skin-edge)" stroke-width="3"/>` +
@@ -640,16 +710,31 @@
     { id: 'outfit', icon: '👗', options: Object.keys(OUTFITS), render: miniOutfit },
     { id: 'acc', icon: '🎀', multi: true, options: Object.keys(ACC), render: miniAcc },
     { id: 'bg', icon: '🏞️', options: Object.keys(BG), render: miniBg },
+    { id: 'fav', icon: '⭐' },
   ];
   let currentCat = 'hair';
+
+  let delId = null, delTimer = 0;
+  function renderFavs(freshId) {
+    $('options').innerHTML = looks.length
+      ? looks.map(l => `<div class="favwrap" data-id="${l.id}"><button class="opt${l.id === freshId ? ' fresh' : ''}">${lookSvg(l)}</button><button class="trash">🗑️</button></div>`).join('')
+      : `<div class="empty">${EMPTY_ICON}</div>`;
+  }
+  function setDel(id) {
+    delId = id; clearTimeout(delTimer);
+    for (const w of $('options').querySelectorAll('.favwrap')) w.classList.toggle('del', w.dataset.id === id);
+    if (id) delTimer = setTimeout(() => setDel(null), 5000);
+  }
 
   function renderTabs() {
     $('tabs').innerHTML = CATEGORIES.map(c =>
       `<button class="tab" role="tab" data-cat="${c.id}" aria-selected="${c.id === currentCat}">${c.icon}</button>`).join('');
   }
-  function renderOptions() {
+  function renderOptions(freshId) {
     const cat = CATEGORIES.find(c => c.id === currentCat);
     $('options').dataset.cat = cat.id;
+    delId = null;
+    if (cat.id === 'fav') return renderFavs(freshId);
     const suit = !!OUTFITS[state.outfit].suit;
     $('options').innerHTML = cat.options.map(k => {
       const on = cat.multi ? state[cat.id].includes(k) : state[cat.id] === k;
@@ -664,6 +749,7 @@
     currentCat = b.dataset.cat; Sound.tick(); renderTabs(); renderOptions();
   });
   $('options').addEventListener('click', e => {
+    if (currentCat === 'fav') return favClick(e);
     const b = e.target.closest('.opt'); if (!b) return;
     if (b.getAttribute('aria-disabled') === 'true') {              // 押せないボタンは、ふるえて小さな音だけ
       b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); Sound.pop(); return;
@@ -681,6 +767,43 @@
       if (currentCat === 'bg') bgSparkle();
     }
     renderOptions();
+  });
+
+  /* ================= お気に入りの操作 ================= */
+  function wearLook(l) {
+    state.hair = l.hair; state.color = l.color; state.outfit = l.outfit; state.bg = l.bg; state.acc = [...l.acc];
+    spin(() => { applyColor(); applyOutfit(); setBg(true); });
+  }
+  let lpTimer = 0, lpFired = false, lpPos = null;
+  function favClick(e) {
+    if (lpFired) { lpFired = false; return; }                         // 長押しで出したゴミ箱の直後のクリックは無視
+    const wrap = e.target.closest('.favwrap');
+    if (e.target.closest('.trash') && wrap) {                          // ゴミ箱をもう一度おす → 消える
+      looks = looks.filter(l => l.id !== wrap.dataset.id); persist(); Sound.pop(); setDel(null);
+      wrap.style.transform = 'scale(.1)'; wrap.style.opacity = '0';
+      setTimeout(renderOptions, 220); return;
+    }
+    if (delId) { setDel(null); return; }                               // ほかの場所をおすと、消すモードをやめる
+    if (!wrap) return;
+    const l = looks.find(x => x.id === wrap.dataset.id); if (l) wearLook(l);
+  }
+  $('options').addEventListener('pointerdown', e => {
+    const wrap = e.target.closest('.favwrap'); if (!wrap || e.target.closest('.trash')) return;
+    lpFired = false; lpPos = [e.clientX, e.clientY]; clearTimeout(lpTimer);
+    lpTimer = setTimeout(() => { lpFired = true; setDel(wrap.dataset.id); Sound.pop(); }, 650);
+  });
+  $('options').addEventListener('pointermove', e => { if (lpTimer && lpPos && Math.hypot(e.clientX - lpPos[0], e.clientY - lpPos[1]) > 12) clearTimeout(lpTimer); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('options').addEventListener(ev, () => clearTimeout(lpTimer));
+  $('options').addEventListener('contextmenu', e => e.preventDefault());
+
+  /* ================= 📷 ほぞん ================= */
+  $('shutter').addEventListener('click', () => {
+    Sound.unlock(); Sound.shutter();
+    $('flash').animate([{ opacity: 0 }, { opacity: .92, offset: .15 }, { opacity: 0 }], { duration: 420, easing: 'ease-out' });
+    const id = saveLook();
+    const tabEl = document.querySelector('.tab[data-cat="fav"]');
+    if (tabEl) { tabEl.classList.remove('bump'); void tabEl.offsetWidth; tabEl.classList.add('bump'); }
+    if (currentCat === 'fav') renderOptions(id);
   });
 
   /* ================= 効果音（Web Audio） ================= */
@@ -712,6 +835,16 @@
         [0, 1, 2, 3, 4].forEach(i => note(620 + (i % 2) * 140, t + i * .1, .09, 'triangle', .2, 880 + (i % 2) * 140));
       },
       twirl() { if (muted || !ensure()) return; note(420, ctx.currentTime, .45, 'sine', .1, 1700); },
+      shutter() {            // カシャッ: 短いノイズを2回
+        if (muted || !ensure()) return; const t = ctx.currentTime;
+        [[0, .35], [.075, .28]].forEach(([dt, vol]) => {
+          const len = Math.floor(ctx.sampleRate * .045), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+          for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+          const src = ctx.createBufferSource(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+          f.type = 'highpass'; f.frequency.value = 1800; g.gain.value = vol;
+          src.buffer = buf; src.connect(f).connect(g).connect(ctx.destination); src.start(t + dt);
+        });
+      },
       pop() { if (muted || !ensure()) return; note(640, ctx.currentTime, .13, 'sine', .07, 320); },
       tick() { if (muted || !ensure()) return; note(880, ctx.currentTime, .08, 'sine', .1); },
     };

@@ -86,7 +86,7 @@
 
   #tabs { display: flex; gap: 8px; flex: none; overflow-x: auto; padding-bottom: 2px; }
   .tab {
-    flex: 1 0 64px; height: 64px; min-width: 64px; border-radius: 20px;
+    flex: 1 1 0; height: 64px; min-width: 60px; border-radius: 20px;
     background: #ffeaf4; font-size: 32px; display: grid; place-items: center;
   }
   .tab[aria-selected="true"] { background: var(--accent); box-shadow: 0 4px 0 #e0558f; }
@@ -94,7 +94,7 @@
   #options {
     flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
     display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 10px;
-    align-content: start; padding: 4px 2px 8px;
+    align-content: start; padding: 12px 12px 12px;
   }
   .opt {
     aspect-ratio: 1; min-height: 72px; border-radius: 22px; background: #fff;
@@ -106,6 +106,26 @@
   .opt svg { width: 88%; height: 88%; }
   #options[data-cat="outfit"] { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
   #options[data-cat="outfit"] .opt { aspect-ratio: 3 / 4; }
+  .opt { position: relative; }
+  #options[data-cat="acc"] .opt[aria-pressed="true"] {
+    background: #fffbe6; border-color: #ffc83d; animation: glow 1.6s ease-in-out infinite;
+  }
+  #options[data-cat="acc"] .opt[aria-pressed="true"]::after {   /* 付いているしるし: 金の星 */
+    content: ''; position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; background: #ffc83d;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  }
+  @keyframes glow { 50% { box-shadow: 0 0 0 3px #ffe08a, 0 0 10px 4px rgba(255, 205, 60, .8); } }
+  .opt[aria-disabled="true"] { opacity: .35; filter: grayscale(.8); }
+  .opt.clear { border-style: dashed; background: #fff5f9; }
+  .opt.shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .wing { animation: flap 2.6s ease-in-out infinite; }
+  .wing.wl { transform-origin: 150px 385px; }
+  .wing.wr { transform-origin: 250px 385px; animation-name: flapR; }
+  @keyframes flap  { 50% { transform: rotate(-7deg); } }
+  @keyframes flapR { 50% { transform: rotate(7deg); } }
+  .twinkle { animation: twinkle 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes twinkle { 50% { transform: scale(1.18) rotate(12deg); } }
   .swatch { width: 70%; height: 70%; border-radius: 50%; border: 3px solid rgba(0,0,0,.12); }
 </style>
 </head>
@@ -122,6 +142,9 @@
 
       <g id="bob">
         <ellipse cx="200" cy="628" rx="95" ry="9" fill="rgba(120,60,90,.18)"/>
+
+        <!-- 羽（からだ・髪よりうしろ） -->
+        <g id="layer-acc-back"></g>
 
         <!-- 後ろ髪 -->
         <g id="layer-hair-back"></g>
@@ -155,7 +178,7 @@
         <!-- 洋服の手前（着ぐるみのフードのふち） -->
         <g id="layer-clothes-front"></g>
 
-        <!-- アクセサリー（あとで追加） -->
+        <!-- アクセサリー（ティアラ・耳・メガネ・ステッキなど） -->
         <g id="layer-acc"></g>
       </g>
     </svg>
@@ -233,6 +256,8 @@
   };
   const dots = (pts, r, fill) => pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join('');
   const sk = 'stroke-linejoin="round"';
+  // パジャマの袖口・すそのしましま（そでの向きに合わせた細い帯）
+  const trim = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5aaee6" stroke-width="8"/>`;
 
   const BODY =
     `<line x1="175" y1="470" x2="172" y2="595" stroke="var(--skin)" stroke-width="30" stroke-linecap="round"/>` +
@@ -275,12 +300,12 @@
       dots([[200, 396], [200, 420]], 4.5, '#e8aa2c') },
 
     pajama: { body:
-      limb(175, 470, 172, 584, 36, '#9fd8ff', '#5aaee6') + limb(225, 470, 228, 584, 36, '#9fd8ff', '#5aaee6') +
-      limb(172, 582, 172, 590, 38, '#fff', '#bcd9ee') + limb(228, 582, 228, 590, 38, '#fff', '#bcd9ee') +
+      limb(175, 470, 172, 574, 36, '#9fd8ff', '#5aaee6') + limb(225, 470, 228, 574, 36, '#9fd8ff', '#5aaee6') +
+      trim(153, 578, 191, 578) + trim(209, 578, 247, 578) +
       star(176, 520, 9, '#ffe066') + star(226, 545, 8, '#ffe066') +
       `<path d="M144 346 Q200 364 256 346 L262 484 Q200 502 138 484 Z" fill="#9fd8ff" stroke="#5aaee6" stroke-width="3" ${sk}/>` +
       limb(152, 356, 124, 450, 32, '#9fd8ff', '#5aaee6') + limb(248, 356, 276, 450, 32, '#9fd8ff', '#5aaee6') +
-      limb(124, 447, 121, 456, 34, '#fff', '#bcd9ee') + limb(276, 447, 279, 456, 34, '#fff', '#bcd9ee') +
+      trim(108, 438, 142, 448) + trim(292, 438, 258, 448) +
       dots([[200, 385], [200, 420], [200, 455]], 4.5, '#fff') +
       star(168, 405, 9, '#ffe066') + star(236, 440, 8, '#ffe066') + star(160, 462, 7, '#ffe066') },
 
@@ -319,6 +344,60 @@
       `<ellipse cx="200" cy="238" rx="86" ry="80" fill="none" stroke="#ffb8d2" stroke-width="5"/>` },
   };
 
+
+  /* ================= アクセサリー ================= */
+  const EARS = ['cat', 'rabbit'];                     // どちらか片方だけ
+  const mirrorG = x => `<g transform="translate(400 0) scale(-1 1)">${x}</g>`;
+  const headBand = `<path d="M118 192 Q200 118 282 192" stroke="#ff8fb8" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+  const catEar = `<polygon points="120,186 124,108 180,157" fill="#fff3e6" stroke="#d9b3a2" stroke-width="3.5" stroke-linejoin="round"/>` +
+                 `<polygon points="132,166 134,128 162,152" fill="#ffb3c9" stroke="#ffb3c9" stroke-width="6" stroke-linejoin="round"/>`;
+  const bunnyEar = (cx, rot) => `<g transform="rotate(${rot} ${cx} 160)"><ellipse cx="${cx}" cy="96" rx="22" ry="64" fill="#fff" stroke="#e8c3d3" stroke-width="3"/>` +
+                 `<ellipse cx="${cx}" cy="104" rx="10" ry="44" fill="#ffb8d2"/></g>`;
+  const bowLoop = `<path d="M0 0 C-14 -26 -44 -30 -48 -8 C-50 14 -22 20 0 0 Z" fill="#ff4f87" stroke="#c92a63" stroke-width="3" stroke-linejoin="round"/>` +
+                  `<path d="M-6 -4 C-16 -18 -32 -20 -37 -9" fill="none" stroke="#ff9fbf" stroke-width="3" stroke-linecap="round"/>`;
+  const bowTail = `<path d="M-2 4 L-20 36 L-6 32 L2 8 Z" fill="#ff4f87" stroke="#c92a63" stroke-width="3" stroke-linejoin="round"/>`;
+  const pearls = Array.from({ length: 9 }, (_, i) => {
+    const t = (i + 1) / 10, u = 1 - t;
+    return `<circle cx="${(u * u * 166 + 2 * t * u * 200 + t * t * 234).toFixed(1)}" cy="${(u * u * 336 + 2 * t * u * 396 + t * t * 336).toFixed(1)}" r="5.5" fill="#fff" stroke="#e3c4d3" stroke-width="2"/>`;
+  }).join('');
+  const wing = `<path d="M150 372 C118 300 50 250 14 268 C0 300 20 350 44 380 C26 392 30 424 56 438 C46 456 66 480 96 474 C128 466 148 430 150 400 Z" fill="#fff" stroke="#b9d3f3" stroke-width="3.5" stroke-linejoin="round"/>` +
+               `<path d="M140 382 C100 342 60 312 30 292 M138 402 C100 382 70 382 48 394 M136 422 C104 426 80 440 62 452" fill="none" stroke="#d6e6fb" stroke-width="3.5" stroke-linecap="round"/>`;
+
+  // 並び順 = パネルの順。front(suit): 着ぐるみ時の手の見た目を変える必要があるのでステッキだけ引数を使う
+  const ACC = {
+    tiara: { head: true, at: [[200, 140]], front: () =>
+      `<path d="M118 192 Q200 128 282 192" stroke="#d9a41e" stroke-width="14" fill="none" stroke-linecap="round"/>` +
+      `<path d="M118 192 Q200 128 282 192" stroke="#ffd84d" stroke-width="9" fill="none" stroke-linecap="round"/>` +
+      `<path d="M160 164 L166 128 L182 148 L200 118 L218 148 L234 128 L240 164 Z" fill="#ffd84d" stroke="#d9a41e" stroke-width="3" stroke-linejoin="round"/>` +
+      `<circle cx="200" cy="146" r="7" fill="#ff6fa8" stroke="#d63b6c" stroke-width="2"/>` +
+      dots([[166, 128], [200, 118], [234, 128]], 4.5, '#8fe8ff') },
+    ribbon: { head: true, at: [[296, 184]], front: () =>
+      `<g transform="translate(296 184) rotate(22)">${bowTail}${mirrorG0(bowTail)}${bowLoop}${mirrorG0(bowLoop)}<circle r="9" fill="#ff7aa8" stroke="#c92a63" stroke-width="3"/></g>` },
+    cat: { head: true, at: [[200, 125]], front: () =>
+      `<g>${catEar}</g><g transform="translate(400 0) scale(-1 1)">${catEar}</g>` + headBand },
+    rabbit: { head: true, at: [[200, 80]], front: () => bunnyEar(152, -10) + bunnyEar(248, 10) + headBand },
+    glasses: { head: true, at: [[200, 247]], front: () =>
+      `<g fill="rgba(210,235,255,.22)" stroke="#7a4a8a" stroke-width="5" stroke-linecap="round">` +
+      `<circle cx="160" cy="247" r="29"/><circle cx="240" cy="247" r="29"/>` +
+      `<path d="M189 242 Q200 234 211 242" fill="none"/><path d="M131 240 L111 234" fill="none"/><path d="M269 240 L289 234" fill="none"/></g>` +
+      `<path d="M142 235 Q148 227 158 225 M222 235 Q228 227 238 225" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none" opacity=".85"/>` },
+    necklace: { vb: '100 290 200 130', at: [[200, 365]], front: () =>
+      `<path d="M166 336 Q200 396 234 336" stroke="#f5c542" stroke-width="3" fill="none"/>` + pearls +
+      `<path d="M200 388 q-15 -11 -15 -22 a8.5 8.5 0 0 1 15 -5 a8.5 8.5 0 0 1 15 5 q0 11 -15 22 z" transform="translate(0 4)" fill="#ff5d8f" stroke="#d63b6c" stroke-width="2.5" stroke-linejoin="round"/>` +
+      `<circle cx="194" cy="368" r="2.6" fill="#fff"/>` },
+    wings: { vb: '0 240 400 280', at: [[50, 370], [350, 370]],
+      back: `<g class="wing wl">${wing}</g><g class="wing wr"><g transform="translate(400 0) scale(-1 1)">${wing}</g></g>` },
+    wand: { vb: '220 320 140 230', noBody: true, at: [[299, 362]], front: suit =>
+      `<line x1="278" y1="522" x2="298" y2="378" stroke="#d94b8a" stroke-width="12" stroke-linecap="round"/>` +
+      `<line x1="278" y1="522" x2="298" y2="378" stroke="#ff9ec7" stroke-width="8" stroke-linecap="round"/>` +
+      `<line x1="279" y1="512" x2="297" y2="386" stroke="#fff" stroke-width="8" stroke-dasharray="5 11" opacity=".8"/>` +
+      `<g stroke="#e8a91c" stroke-width="3.5" class="twinkle">${star(299, 360, 31, '#ffd84d')}</g>` + star(299, 360, 14, 'rgba(255,255,255,.7)') +
+      (suit ? `<circle cx="284" cy="468" r="19" fill="#fff" stroke="#ecc3d3" stroke-width="3"/><circle cx="284" cy="472" r="7" fill="#ffc4dc"/>`
+            : `<circle cx="284" cy="466" r="15" fill="var(--skin)"/>`) },
+  };
+  function mirrorG0(x) { return `<g transform="scale(-1 1)">${x}</g>`; }   // 原点まわりで左右反転
+  const ACC_ORDER = ['wings', 'necklace', 'wand', 'glasses', 'cat', 'rabbit', 'ribbon', 'tiara'];   // 重ねる順（うしろ→まえ）
+
   /* ================= 髪色 ================= */
   const COLORS = {
     pink:     { stops: [['#ffb3d4', 0], ['#ff7eb6', 1]], edge: '#e0558f', swatch: 'linear-gradient(#ffb3d4,#ff7eb6)' },
@@ -331,7 +410,7 @@
   };
 
   /* ================= 状態 ================= */
-  const state = { hair: 'long', color: 'pink', outfit: 'casual' };   // アクセ・背景は後で追加
+  const state = { hair: 'long', color: 'pink', outfit: 'casual', acc: [] };   // 背景は後で追加
 
   const $ = id => document.getElementById(id);
   const girl = $('girl');
@@ -364,11 +443,32 @@
     }
   }
 
+  function applyAcc(popKey) {
+    let back = '', front = '';
+    const suit = !!OUTFITS[state.outfit].suit;
+    for (const k of ACC_ORDER) {
+      if (!state.acc.includes(k)) continue;
+      const a = ACC[k];
+      if (a.back) back += `<g data-acc="${k}">${a.back}</g>`;
+      if (a.front) front += `<g data-acc="${k}">${a.front(suit)}</g>`;
+    }
+    $('layer-acc-back').innerHTML = back;
+    $('layer-acc').innerHTML = front;
+    if (popKey) {
+      for (const el of girl.querySelectorAll(`[data-acc="${popKey}"]`)) {
+        el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
+        el.animate([{ transform: 'scale(.2)', opacity: 0 }, { transform: 'scale(1.18)', opacity: 1, offset: .6 }, { transform: 'scale(1)', opacity: 1 }],
+                   { duration: 450, easing: 'ease-out' });
+      }
+    }
+  }
+
   function applyOutfit() {
     const o = OUTFITS[state.outfit];
     $('layer-clothes').innerHTML = o.body;
     $('layer-clothes-front').innerHTML = o.front || '';
     applyHair(false);
+    applyAcc();
   }
 
   /* ================= パネル ================= */
@@ -383,10 +483,21 @@
       (o.suit ? `<g clip-path="url(#headClip)">${h.bangs}</g>` : h.bangs + h.extra) + (o.front || '') + `</svg>`;
   };
 
+  // アクセボタン: 頭まわりのものは今の髪をかぶせた顔、それ以外はからだの一部といっしょに表示
+  const miniAcc = key => {
+    const a = ACC[key], h = HAIR[state.hair];
+    const inner = a.head
+      ? h.back + HEAD + MINI_FACE + h.bangs + h.extra + (a.front ? a.front(false) : '')
+      : (a.back || '') + (a.noBody ? '' : BODY) + (a.front ? a.front(false) : '');
+    return `<svg viewBox="${a.head ? '60 15 280 320' : a.vb}">${inner}</svg>`;
+  };
+  const CLEAR_ICON = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="38" fill="#ffb3d1"/><path d="M34 34 L66 66 M66 34 L34 66" stroke="#fff" stroke-width="10" stroke-linecap="round"/></svg>`;
+
   const CATEGORIES = [
     { id: 'hair', icon: '💇‍♀️', options: Object.keys(HAIR), render: miniHair },
     { id: 'color', icon: '🎨', options: Object.keys(COLORS), render: k => `<div class="swatch" style="background:${COLORS[k].swatch}"></div>` },
     { id: 'outfit', icon: '👗', options: Object.keys(OUTFITS), render: miniOutfit },
+    { id: 'acc', icon: '🎀', multi: true, options: Object.keys(ACC), render: miniAcc },
   ];
   let currentCat = 'hair';
 
@@ -397,8 +508,13 @@
   function renderOptions() {
     const cat = CATEGORIES.find(c => c.id === currentCat);
     $('options').dataset.cat = cat.id;
-    $('options').innerHTML = cat.options.map(k =>
-      `<button class="opt" data-key="${k}" aria-pressed="${state[cat.id] === k}">${cat.render(k)}</button>`).join('');
+    const suit = !!OUTFITS[state.outfit].suit;
+    $('options').innerHTML = cat.options.map(k => {
+      const on = cat.multi ? state[cat.id].includes(k) : state[cat.id] === k;
+      const off = cat.id === 'acc' && suit && EARS.includes(k);      // 着ぐるみには自前の耳がある
+      return `<button class="opt" data-key="${k}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${cat.render(k)}</button>`;
+    }).join('') + (cat.id === 'acc'
+      ? `<button class="opt clear" data-clear="1" aria-disabled="${state.acc.length === 0}">${CLEAR_ICON}</button>` : '');
   }
 
   $('tabs').addEventListener('click', e => {
@@ -407,8 +523,13 @@
   });
   $('options').addEventListener('click', e => {
     const b = e.target.closest('.opt'); if (!b) return;
+    if (b.getAttribute('aria-disabled') === 'true') {              // 押せないボタンは、ふるえて小さな音だけ
+      b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); Sound.pop(); return;
+    }
+    if (currentCat === 'acc') { toggleAcc(b.dataset); renderOptions(); return; }
     state[currentCat] = b.dataset.key;
     if (currentCat === 'outfit') {
+      if (OUTFITS[state.outfit].suit) state.acc = state.acc.filter(k => !EARS.includes(k));
       spin(applyOutfit);               // 洋服: くるっと回って着がえ
     } else {
       if (currentCat === 'hair') applyHair(true); else applyColor();
@@ -446,6 +567,7 @@
         [0, 1, 2, 3, 4].forEach(i => note(620 + (i % 2) * 140, t + i * .1, .09, 'triangle', .2, 880 + (i % 2) * 140));
       },
       twirl() { if (muted || !ensure()) return; note(420, ctx.currentTime, .45, 'sine', .1, 1700); },
+      pop() { if (muted || !ensure()) return; note(640, ctx.currentTime, .13, 'sine', .07, 320); },
       tick() { if (muted || !ensure()) return; note(880, ctx.currentTime, .08, 'sine', .1); },
     };
   })();
@@ -469,12 +591,28 @@
     }
   }
   // キャラの頭まわり（SVG座標 → 画面座標）
-  function sparkleAround() {
+  function sparkleAtSvg(x, y, n) {
     const r = girl.getBoundingClientRect();
     const k = Math.min(r.width / 400, r.height / 640);
     const ox = r.left + (r.width - 400 * k) / 2, oy = r.bottom - 640 * k;
     const s = $('stage').getBoundingClientRect();
-    sparkleAt(ox + 200 * k - s.left, oy + 220 * k - s.top, 18);
+    sparkleAt(ox + x * k - s.left, oy + y * k - s.top, n);
+  }
+  const sparkleAround = () => sparkleAtSvg(200, 220, 18);
+
+  // アクセ: おすと付く / もう一度おすと外れる
+  function toggleAcc({ key, clear }) {
+    if (clear) {
+      for (const k of state.acc) ACC[k].at.forEach(([x, y]) => sparkleAtSvg(x, y, 3));
+      state.acc = []; applyAcc(); Sound.pop(); setTimeout(Sound.pop, 90); return;
+    }
+    if (state.acc.includes(key)) {
+      state.acc = state.acc.filter(k => k !== key); applyAcc();
+      ACC[key].at.forEach(([x, y]) => sparkleAtSvg(x, y, 3)); Sound.pop(); return;
+    }
+    state.acc = state.acc.filter(k => !(EARS.includes(key) && EARS.includes(k))); state.acc.push(key);
+    applyAcc(key);
+    ACC[key].at.forEach(([x, y]) => sparkleAtSvg(x, y, 12)); Sound.sparkle();
   }
 
   /* ================= まばたき・わらう ================= */
@@ -516,6 +654,15 @@
   $('omakase').addEventListener('click', () => {
     Sound.unlock();
     state.hair = pick(Object.keys(HAIR)); state.color = pick(Object.keys(COLORS)); state.outfit = pick(Object.keys(OUTFITS));
+    // アクセは0〜3個（耳は片方だけ・着ぐるみには付けない）
+    const suit = !!OUTFITS[state.outfit].suit, picks = [], n = Math.floor(Math.random() * 4);
+    const pool = Object.keys(ACC).filter(k => !(suit && EARS.includes(k))).sort(() => Math.random() - .5);
+    for (const k of pool) {
+      if (picks.length >= n) break;
+      if (EARS.includes(k) && picks.some(p => EARS.includes(p))) continue;
+      picks.push(k);
+    }
+    state.acc = picks;
     spin(() => { applyColor(); applyOutfit(); });
     renderOptions();
   });
